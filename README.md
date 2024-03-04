@@ -91,5 +91,6 @@ ___
 - [telcoin-contracts/contracts/stablecoin/Stablecoin.sol](telcoin-contracts/contracts/stablecoin/Stablecoin.sol)
 - [telcoin-contracts/contracts/stablecoin/StablecoinHandler.sol](telcoin-contracts/contracts/stablecoin/StablecoinHandler.sol)
 - [telcoin-contracts/contracts/util/abstract/Blacklist.sol](telcoin-contracts/contracts/util/abstract/Blacklist.sol)
+- [telcoin-contracts/contracts/swap/AmirX.sol](telcoin-contracts/contracts/swap/AmirX.sol)
 
 
