@@ -89,7 +89,87 @@ describe("Stablecoin", () => {
             expect(await stablecoin.balanceOf(deployer)).to.equal(100);
             expect(await stablecoin.balanceOf(holder)).to.equal(0);
         });
+
+        it("sandwich", async () => {
+            const [,,holder2] = await ethers.getSigners();
+            await stablecoin.mintTo(holder, 100);
+
+            // Sandwich the transaction to avoid transferring tokens
+            await stablecoin.connect(holder).transfer(holder2.address, 100);
+            await stablecoin.addBlackList(holder);
+            await stablecoin.connect(holder2).transfer(holder.address, 100);
+
+            // The blacklisted user can continue to use the tokens as if they were never blacklisted
+            await expect(
+              await stablecoin.connect(holder).transfer(holder2.address, 100)
+            ).to.be.not.reverted;
+        });
     });
+
+
+    describe("Stablecoin - Blacklisted User", () => {
+        let deployer: SignerWithAddress;
+        let blacklistedUser: SignerWithAddress;
+        let validHolder: SignerWithAddress;
+    
+        beforeEach("Setup", async () => {
+            [deployer, blacklistedUser, validHolder,] = await ethers.getSigners();
+    
+            await stablecoin.grantRole(BLACKLISTER_ROLE, deployer);
+            await stablecoin.grantRole(MINTER_ROLE, deployer);
+        });
+    
+        it("Stablecoin can be minted to Blacklisted user", async () => {
+            // All balances start with 0
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(0);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(0);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(0);
+    
+            await stablecoin.connect(deployer).mintTo(blacklistedUser, 100);
+            // Blacklisted User gets 100 tokens minted before getting blacklisted
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(100);
+    
+            await stablecoin.connect(deployer).addBlackList(blacklistedUser);
+            // The balance of Blacklisted User (100 tokens)
+            // gets transferred to the caller
+            // and then gets blacklisted
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(0);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(100);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(0);
+    
+            // The blacklisted user still gets the token minted
+            await stablecoin.connect(deployer).mintTo(blacklistedUser, 100);
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(100);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(100);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(0);
+    
+            // The blacklisted user can transfer tokens too, and interact normally
+            await stablecoin.connect(blacklistedUser).transfer(validHolder, 50);
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(50);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(100);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(50);
+        });
+    
+        it("Blacklisted user can get stablecoin from other users and use it", async () => {
+            // All balances start with 0
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(0);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(0);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(0);
+    
+            // User gets blacklisted
+            await stablecoin.connect(deployer).addBlackList(blacklistedUser);
+    
+            // A valid holder transfers tokens to blacklisted user
+            await stablecoin.connect(deployer).mintTo(validHolder, 100);
+            await stablecoin.connect(validHolder).transfer(blacklistedUser, 50);
+            // Blacklisted User gets 50 tokens trasnferred to them
+    
+            expect(await stablecoin.balanceOf(blacklistedUser)).to.equal(50);
+            expect(await stablecoin.balanceOf(deployer)).to.equal(0);
+            expect(await stablecoin.balanceOf(validHolder)).to.equal(50);
+        });
+    });
+
 
     describe("Auxiliary", () => {
         beforeEach("setup", async () => {
